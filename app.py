@@ -2,24 +2,18 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 
-# 1. Konfigurasi Halaman & CSS Background Grafik
-st.set_page_config(page_title="TradeWise Perfect", layout="wide")
+# 1. Konfigurasi Halaman & Tema Putih (Clean & Professional)
+st.set_page_config(page_title="TradeWise AI", layout="wide")
 st.markdown("""
     <style>
-    .stApp { 
-        background: url('https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=2070'); 
-        background-size: cover; 
-    }
-    .main > div { 
-        background-color: rgba(0, 0, 0, 0.85); 
-        padding: 2rem; 
-        border-radius: 15px; 
-        color: white !important; 
-    }
+    /* Mengubah tema menjadi dominan putih */
+    .stApp { background-color: #ffffff; color: #000000; }
+    h1, h2, h3, p, label { color: #000000 !important; }
+    .stButton>button { background-color: #007bff !important; color: white !important; font-weight: bold; }
     </style>
 """, unsafe_allow_html=True)
 
-# 2. Fungsi RSI yang sudah diperbaiki agar tidak error 'Series'
+# 2. Fungsi RSI
 def calculate_rsi(data, window=14):
     delta = data['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
@@ -27,36 +21,53 @@ def calculate_rsi(data, window=14):
     rs = gain / loss
     return 100 - (100 / (1 + rs))
 
-# 3. Aplikasi Utama
-st.title("📈 Asisten Saham Pintar")
+# 3. Sistem Login
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
 
-ticker = st.text_input("Masukkan Kode Saham (Contoh: BBCA.JK atau AAPL)", "AAPL")
-
-if st.button("Dapatkan Rekomendasi"):
-    with st.spinner("Menganalisis data..."):
-        try:
-            # Menggunakan yf.download paling standar
-            df = yf.download(ticker, period="3mo", progress=False)
-            
-            # Pengecekan data yang aman (Strict Check)
-            if isinstance(df, pd.DataFrame) and not df.empty and 'Close' in df.columns:
-                rsi_series = calculate_rsi(df)
+if not st.session_state.authenticated:
+    st.title("🔐 Login TradeWise AI")
+    pwd = st.text_input("Masukkan Password:", type="password")
+    if st.button("Login"):
+        if pwd == "Sefilius18":
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("Password Salah!")
+else:
+    # 4. Aplikasi Utama (TradeWise AI)
+    st.title("📈 TradeWise AI")
+    st.write("Asisten Pintar untuk keputusan beli/jual saham Anda.")
+    
+    ticker = st.text_input("Masukkan Kode Saham (Contoh: BBCA.JK atau AAPL)", "AAPL")
+    
+    if st.button("Dapatkan Rekomendasi"):
+        with st.spinner("TradeWise AI sedang menganalisis data..."):
+            try:
+                df = yf.download(ticker, period="3mo", progress=False)
                 
-                # Mengambil nilai terakhir dengan aman sebagai angka (float)
-                # Ini menghindari error 'float() argument must be... not Series'
-                val = float(rsi_series.iloc[-1])
-                
-                st.line_chart(rsi_series)
-                st.metric("Skor RSI Saat Ini", f"{val:.2f}")
-                
-                # Logika Rekomendasi Pro untuk Pemula
-                if val < 30:
-                    st.success("Saran: OVERSOLD (Potensi Beli - Harga Murah)")
-                elif val > 70:
-                    st.warning("Saran: OVERBOUGHT (Potensi Jual - Harga Mahal)")
+                # Pengecekan data aman agar tidak error Series
+                if isinstance(df, pd.DataFrame) and not df.empty and 'Close' in df.columns:
+                    rsi_series = calculate_rsi(df)
+                    
+                    # Memastikan hanya mengambil satu nilai terakhir sebagai float
+                    val = float(rsi_series.iloc[-1])
+                    
+                    st.line_chart(rsi_series)
+                    st.metric("Skor RSI", f"{val:.2f}")
+                    
+                    # Rekomendasi Pro
+                    if val < 30:
+                        st.success("🤖 AI Suggestion: OVERSOLD. Harga sedang murah, ini kesempatan untuk BELI.")
+                    elif val > 70:
+                        st.warning("🤖 AI Suggestion: OVERBOUGHT. Harga terlalu mahal, sebaiknya JUAL atau TUNGGU.")
+                    else:
+                        st.info("🤖 AI Suggestion: NETRAL. Tunggu sinyal yang lebih kuat.")
                 else:
-                    st.info("Saran: NETRAL (Pantau Terus)")
-            else:
-                st.error("Data gagal dimuat. Pastikan kode saham benar dan server tidak sedang memblokir akses.")
-        except Exception as e:
-            st.error(f"Error teknis: {str(e)}")
+                    st.error("Data saham tidak ditemukan. Silakan coba kode lain (Contoh: AAPL).")
+            except Exception as e:
+                st.error(f"Error teknis: {str(e)}")
+
+    if st.button("Logout"):
+        st.session_state.authenticated = False
+        st.rerun()
