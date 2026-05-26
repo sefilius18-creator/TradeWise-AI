@@ -3,75 +3,74 @@ import yfinance as yf
 import requests
 import pandas as pd
 
-# 1. KONFIGURASI
+# Konfigurasi Halaman
 st.set_page_config(page_title="TradeWise AI", layout="wide")
 
-# 2. FUNGSI DATA (CACHED)
+# Fungsi Data dengan Penanganan Error yang Kuat
 @st.cache_data(ttl=3600)
-def get_stock_data(ticker):
+def get_data(ticker):
     try:
         df = yf.download(ticker, period="6mo", progress=False)
         info = yf.Ticker(ticker).info
         return df, info
-    except: return pd.DataFrame(), {}
+    except Exception:
+        return pd.DataFrame(), {}
 
-# 3. SISTEM LOGIN
-if "auth" not in st.session_state: st.session_state.auth = False
+# --- SISTEM NAVIGASI ---
+st.sidebar.title("☰ Menu Utama")
+menu = st.sidebar.radio("Pilih Halaman:", ["Dashboard RSI", "Fundamental & Berita"])
 
-if not st.session_state.auth:
-    st.title("🔐 TradeWise AI")
-    pwd = st.text_input("Password:", type="password")
-    if st.button("Login"):
-        if pwd == "Sefilius18": st.session_state.auth = True; st.rerun()
-        else: st.error("Password Salah!")
-else:
-    # 4. SIDEBAR NAVIGASI LENGKAP
-    with st.sidebar:
-        st.title("TradeWise AI")
-        menu = st.radio("Menu Utama:", ["Dashboard Analisis", "Fundamental", "Berita Saham"])
-        if st.button("Logout"): st.session_state.auth = False; st.rerun()
+# --- HALAMAN 1: DASHBOARD RSI ---
+if menu == "Dashboard RSI":
+    st.title("📈 Analisis RSI")
+    ticker = st.text_input("Kode Saham (Contoh: AAPL):", "AAPL")
+    if st.button("Analisis"):
+        df, _ = get_data(ticker)
+        if not df.empty and 'Close' in df.columns:
+            # Perhitungan RSI
+            delta = df['Close'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+            rsi = 100 - (100 / (1 + (gain / loss)))
+            
+            st.line_chart(rsi)
+            
+            # Perbaikan TypeError: Memastikan nilai adalah angka
+            val = rsi.iloc[-1]
+            if hasattr(val, 'item'): val = val.item() # Konversi dari series ke angka
+            
+            st.metric("Skor RSI Terkini", f"{float(val):.2f}")
+            
+            # Logika Rekomendasi
+            if val < 30: st.success("STATUS: OVERSOLD. Peluang Beli.")
+            elif val > 70: st.error("STATUS: OVERBOUGHT. Peluang Jual.")
+            else: st.info("STATUS: NETRAL.")
+        else:
+            st.warning("Data tidak tersedia. Coba kode saham lain (Contoh: BBCA.JK atau AAPL).")
 
-    # 5. DASHBOARD TEKNIKAL
-    if menu == "Dashboard Analisis":
-        st.title("📈 Analisis Teknikal RSI")
-        ticker = st.text_input("Kode Saham:", "AAPL")
-        if st.button("Proses Analisis"):
-            df, _ = get_stock_data(ticker)
-            if not df.empty:
-                delta = df['Close'].diff()
-                gain = (delta.where(delta > 0, 0)).rolling(14).mean()
-                loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
-                rsi = 100 - (100 / (1 + (gain / loss)))
-                val = float(rsi.iloc[-1])
-                st.line_chart(rsi)
-                st.metric("Skor RSI", f"{val:.2f}")
-                if val < 30: st.success("STATUS: OVERSOLD (Beli)")
-                elif val > 70: st.error("STATUS: OVERBOUGHT (Jual)")
-                else: st.info("STATUS: NETRAL")
-            else: st.warning("Data tidak tersedia.")
-
-    # 6. FUNDAMENTAL
-    elif menu == "Fundamental":
-        st.title("📊 Data Fundamental")
-        ticker = st.text_input("Cek Saham:", "AAPL")
-        if st.button("Tampilkan Fundamental"):
-            _, info = get_stock_data(ticker)
+# --- HALAMAN 2: FUNDAMENTAL & BERITA ---
+elif menu == "Fundamental & Berita":
+    st.title("📰 Fundamental & Berita")
+    ticker = st.text_input("Cek Saham:", "AAPL")
+    if st.button("Tampilkan"):
+        _, info = get_data(ticker)
+        if info:
             st.metric("P/E Ratio", info.get('trailingPE', 'N/A'))
             st.metric("Market Cap", f"{info.get('marketCap', 0)/1e9:.2f} B")
-            st.metric("Dividend Yield", f"{info.get('dividendYield', 0)*100:.2f} %" if info.get('dividendYield') else 'N/A')
-
-    # 7. BERITA (NEWSAPI)
-    elif menu == "Berita Saham":
-        st.title("📰 Berita Terkini")
-        ticker = st.text_input("Cari Berita:", "AAPL")
-        if st.button("Muat Berita"):
+            
+            st.subheader("Berita Terkini:")
             API_KEY = "a8f7e0c949134eea9863c652f02f8175"
             url = f"https://newsapi.org/v2/everything?q={ticker}&apiKey={API_KEY}&language=id&pageSize=3"
             try:
                 res = requests.get(url, timeout=10).json()
-                for art in res.get('articles', []):
-                    st.write(f"### {art['title']}")
-                    st.write(art['description'])
-                    st.markdown(f"[Baca Sumber Asli]({art['url']})")
-                    st.divider()
-            except: st.error("Berita gagal dimuat (Coba ganti kata kunci).")
+                if 'articles' in res:
+                    for art in res['articles']:
+                        st.write(f"**{art['title']}**")
+                        st.markdown(f"[Baca]({art['url']})")
+                        st.divider()
+                else:
+                    st.info("Tidak ada berita ditemukan.")
+            except Exception:
+                st.error("Gagal memuat berita.")
+        else:
+            st.warning("Data fundamental tidak ditemukan untuk saham tersebut.")
