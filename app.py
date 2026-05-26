@@ -13,7 +13,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Fungsi RSI
+# Fungsi RSI yang Aman
 def calculate_rsi(data, window=14):
     delta = data['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
@@ -35,16 +35,20 @@ if not st.session_state.authenticated:
         else:
             st.error("Password Salah!")
 else:
-    # --- APLIKASI UTAMA (Hanya tampil jika login benar) ---
+    # --- APLIKASI UTAMA ---
     ticker = st.text_input("Masukkan Kode Saham (Contoh: BBCA.JK)", "BBCA.JK")
     
     if st.button("Analisis Saham"):
         try:
+            # Unduh data
             df = yf.download(ticker, period="3mo", progress=False)
+            
+            # PERBAIKAN: Gunakan .empty untuk pengecekan data (ini kunci agar error hilang)
             if df is not None and not df.empty and 'Close' in df.columns and len(df) > 14:
                 rsi = calculate_rsi(df)
                 val = rsi.iloc[-1]
                 
+                # Cek apakah nilai valid (bukan NaN)
                 if pd.notnull(val):
                     st.line_chart(rsi)
                     st.metric("RSI Saat Ini", f"{float(val):.2f}")
@@ -54,9 +58,9 @@ else:
                 else:
                     st.error("Data RSI tidak valid.")
             else:
-                st.error("Saham tidak ditemukan. Gunakan akhiran .JK (Contoh: BBCA.JK).")
+                st.error("Data tidak ditemukan. Pastikan ticker benar (Contoh: BBCA.JK).")
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"Error sistem: {e}")
             
     if st.button("Logout"):
         st.session_state.authenticated = False
