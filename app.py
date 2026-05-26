@@ -40,10 +40,10 @@ else:
     
     if st.button("Analisis Saham"):
         try:
-            # Unduh data
+            # Unduh data dari Yahoo Finance
             df = yf.download(ticker, period="3mo", progress=False)
             
-            # PERBAIKAN: Gunakan .empty untuk pengecekan data (ini kunci agar error hilang)
+            # PERBAIKAN: Gunakan .empty untuk mengecek apakah data ada atau tidak
             if df is not None and not df.empty and 'Close' in df.columns and len(df) > 14:
                 rsi = calculate_rsi(df)
                 val = rsi.iloc[-1]
@@ -56,9 +56,9 @@ else:
                     elif val > 70: st.warning("Status: Overbought (Potensi Jual)")
                     else: st.info("Status: Netral")
                 else:
-                    st.error("Data RSI tidak valid.")
+                    st.error("Data RSI tidak valid (mungkin saham tidak likuid).")
             else:
-                st.error("Data tidak ditemukan. Pastikan ticker benar (Contoh: BBCA.JK).")
+                st.error("Data tidak ditemukan. Pastikan ticker benar (contoh: BBCA.JK).")
         except Exception as e:
             st.error(f"Error sistem: {e}")
             
