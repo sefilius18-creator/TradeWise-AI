@@ -3,15 +3,9 @@ import yfinance as yf
 import pandas as pd
 
 # Konfigurasi Halaman
-st.set_page_config(page_title="TradeWise Perfect", layout="wide")
-st.markdown("""
-    <style>
-    .stApp { background: url('https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=2070'); background-size: cover; }
-    .main > div { background-color: rgba(0, 0, 0, 0.85); padding: 2rem; border-radius: 15px; color: white !important; }
-    </style>
-""", unsafe_allow_html=True)
+st.set_page_config(page_title="TradeWise Pro", layout="wide")
 
-# Fungsi RSI yang stabil
+# Fungsi RSI
 def calculate_rsi(data, window=14):
     delta = data['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
@@ -19,41 +13,58 @@ def calculate_rsi(data, window=14):
     rs = gain / loss
     return 100 - (100 / (1 + rs))
 
-st.title("📈 TradeWise Perfect")
-
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
+# --- SISTEM LOGIN ---
+if "authenticated" not in st.session_state: st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
+    st.title("🔐 Login TradeWise Pro")
     pwd = st.text_input("Masukkan Password:", type="password")
     if st.button("Login"):
         if pwd == "Sefilius18":
             st.session_state.authenticated = True
             st.rerun()
+        else: st.error("Password Salah!")
 else:
-    ticker = st.text_input("Masukkan Kode Saham (Contoh: BBCA.JK)", "BBCA.JK")
-    
-    if st.button("Analisis Saham"):
-        try:
-            # Menggunakan sintaks yfinance paling dasar agar kompatibel dengan versi apapun
-            df = yf.download(ticker, period="3mo", progress=False)
-            
-            # Pengecekan data yang aman
-            if isinstance(df, pd.DataFrame) and not df.empty and 'Close' in df.columns:
-                rsi = calculate_rsi(df)
-                val = rsi.iloc[-1]
-                
-                st.line_chart(rsi)
-                st.metric("RSI Saat Ini", f"{float(val):.2f}")
-                
-                if val < 30: st.success("Status: Oversold (Potensi Beli)")
-                elif val > 70: st.warning("Status: Overbought (Potensi Jual)")
-                else: st.info("Status: Netral")
-            else:
-                st.error("Data tidak ditemukan atau akses Yahoo dibatasi. Coba lagi nanti.")
-        except Exception as e:
-            st.error(f"Error teknis: {e}")
+    # --- NAVIGASI MENU ---
+    st.sidebar.title("Navigasi TradeWise")
+    menu = st.sidebar.radio("Pilih Fitur:", ["Dashboard Analisis", "Cara Membaca Saham", "Logout"])
 
-    if st.button("Logout"):
+    if menu == "Dashboard Analisis":
+        st.title("📈 Asisten Saham Pintar")
+        ticker = st.text_input("Masukkan Kode Saham (Contoh: BBCA.JK)", "BBCA.JK")
+        
+        if st.button("Dapatkan Rekomendasi"):
+            with st.spinner("Menganalisis pola saham untuk Anda..."):
+                try:
+                    df = yf.download(ticker, period="3mo", progress=False)
+                    if not df.empty and 'Close' in df.columns:
+                        rsi_series = calculate_rsi(df)
+                        rsi = float(rsi_series.iloc[-1])
+                        
+                        st.line_chart(rsi_series)
+                        st.metric("Skor RSI", f"{rsi:.2f}")
+                        
+                        # LOGIKA REKOMENDASI UNTUK PEMULA
+                        st.subheader("💡 Saran Trader Pro:")
+                        if rsi < 30:
+                            st.success(f"**BELI SEKARANG!** {ticker} sedang dalam posisi 'Oversold' (Harga murah). Ini kesempatan bagus untuk masuk.")
+                        elif rsi > 70:
+                            st.warning(f"**JANGAN BELI!** {ticker} sudah 'Overbought' (Harga sudah terlalu tinggi). Tunggu harga turun.")
+                        else:
+                            st.info(f"**TUNGGU DULU.** {ticker} masih bergerak stabil. Pantau terus sampai ada sinyal beli atau jual.")
+                    else:
+                        st.error("Data tidak ditemukan. Pastikan ticker benar.")
+                except Exception as e:
+                    st.error("Error teknis, coba lagi nanti.")
+
+    elif menu == "Cara Membaca Saham":
+        st.title("🎓 Panduan Cepat Pemula")
+        st.write("""
+        * **RSI < 30**: Harga saham dianggap murah (Oversold). Biasanya ini waktu yang tepat untuk **Beli**.
+        * **RSI > 70**: Harga saham dianggap terlalu mahal (Overbought). Biasanya ini waktu yang tepat untuk **Jual** atau **Tunggu**.
+        * **Netral**: Jika RSI di antara 30-70, saham sedang dalam kondisi normal.
+        """)
+        
+    elif menu == "Logout":
         st.session_state.authenticated = False
         st.rerun()
