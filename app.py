@@ -3,64 +3,65 @@ import yfinance as yf
 import requests
 import pandas as pd
 
-# 1. KONFIGURASI HALAMAN
 st.set_page_config(page_title="TradeWise AI Pro", layout="wide")
 
-# 2. FUNGSI DATA YANG AMAN (DENGAN CACHING)
+# FUNGSI CACHE YANG AMAN (TTL 1 jam agar tidak diblokir Yahoo)
 @st.cache_data(ttl=3600)
-def get_stock_data(ticker):
+def get_data_safe(ticker):
     try:
+        # Menggunakan .download() jauh lebih stabil daripada .Ticker().info
         df = yf.download(ticker, period="3mo", progress=False)
-        ticker_info = yf.Ticker(ticker).info
-        return df, ticker_info
+        info = yf.Ticker(ticker).info
+        return df, info
     except Exception:
         return pd.DataFrame(), {}
 
-# 3. SISTEM LOGIN
+# SISTEM LOGIN
 if "auth" not in st.session_state: st.session_state.auth = False
 
 if not st.session_state.auth:
-    st.title("🔐 Login TradeWise AI")
-    pwd = st.text_input("Masukkan Password:", type="password")
+    st.title("🔐 TradeWise AI Login")
+    pwd = st.text_input("Password:", type="password")
     if st.button("Login"):
         if pwd == "Sefilius18": st.session_state.auth = True; st.rerun()
         else: st.error("Password Salah!")
 else:
-    # 4. SIDEBAR NAVIGASI
+    # SIDEBAR NAVIGASI
     with st.sidebar:
         st.header("☰ Menu Utama")
-        page = st.radio("Pilih Halaman:", ["Dashboard Analisis", "Fundamental & Berita"])
+        page = st.radio("Navigasi:", ["Dashboard Analisis", "Fundamental & Berita"])
         if st.button("Logout"): st.session_state.auth = False; st.rerun()
 
-    # 5. HALAMAN DASHBOARD ANALISIS
+    # DASHBOARD ANALISIS (RSI)
     if page == "Dashboard Analisis":
         st.title("📈 Dashboard Analisis")
-        ticker = st.text_input("Kode Saham (contoh: AAPL atau BBCA.JK):", "AAPL")
+        ticker = st.text_input("Kode Saham (Contoh: AAPL):", "AAPL")
         if st.button("Analisis"):
-            with st.spinner("Mengolah data RSI..."):
-                df, _ = get_stock_data(ticker)
+            with st.spinner("Mengambil data..."):
+                df, _ = get_data_safe(ticker)
                 if not df.empty and 'Close' in df.columns:
-                    # Kalkulasi RSI
+                    # Perhitungan RSI yang benar
                     delta = df['Close'].diff()
                     gain = (delta.where(delta > 0, 0)).rolling(14).mean()
                     loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
                     rsi = 100 - (100 / (1 + (gain / loss)))
                     
                     st.line_chart(rsi)
-                    # Mengambil nilai terakhir dengan aman
+                    # FIX: Pastikan mengambil nilai skalar dari Series
                     val = float(rsi.iloc[-1])
-                    st.metric("Skor RSI Terkini", f"{val:.2f}")
-                else: st.warning("Data tidak tersedia atau server sibuk.")
+                    st.metric("Skor RSI", f"{val:.2f}")
+                else:
+                    st.error("Server sibuk/Blokir Yahoo. Coba lagi dalam 1 jam.")
 
-    # 6. HALAMAN FUNDAMENTAL & BERITA
+    # FUNDAMENTAL & BERITA
     elif page == "Fundamental & Berita":
         st.title("📰 Fundamental & Berita")
-        ticker = st.text_input("Masukkan Kode Saham:", "AAPL")
+        ticker = st.text_input("Kode Saham:", "AAPL")
         if st.button("Tampilkan"):
-            _, info = get_stock_data(ticker)
+            _, info = get_data_safe(ticker)
             st.metric("P/E Ratio", info.get('trailingPE', 'N/A'))
             
-            # Berita dengan API
+            # API Berita
             API_KEY = "a8f7e0c949134eea9863c652f02f8175"
             url = f"https://newsapi.org/v2/everything?q={ticker}&apiKey={API_KEY}&language=id&pageSize=3"
             try:
