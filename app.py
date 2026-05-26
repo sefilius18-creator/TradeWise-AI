@@ -1,8 +1,9 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import time
 
-# Konfigurasi Halaman & CSS untuk Kontras
+# 1. Konfigurasi Halaman & CSS (Sudah termasuk)
 st.set_page_config(page_title="TradeWise Perfect", layout="wide", page_icon="📈")
 st.markdown("""
     <style>
@@ -13,7 +14,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Fungsi RSI
+# 2. Fungsi RSI
 def calculate_rsi(data, window=14):
     delta = data['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
@@ -21,10 +22,9 @@ def calculate_rsi(data, window=14):
     rs = gain / loss
     return 100 - (100 / (1 + rs))
 
-# --- SISTEM LOGIN ---
+# 3. Sistem Login
 st.title("📈 TradeWise Perfect")
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
+if "authenticated" not in st.session_state: st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
     pwd = st.text_input("Masukkan Password:", type="password")
@@ -32,36 +32,36 @@ if not st.session_state.authenticated:
         if pwd == "Sefilius18":
             st.session_state.authenticated = True
             st.rerun()
-        else:
-            st.error("Password Salah!")
+        else: st.error("Password Salah!")
 else:
-    # --- APLIKASI UTAMA ---
     ticker = st.text_input("Masukkan Kode Saham (Contoh: BBCA.JK)", "BBCA.JK")
     
+    # 4. Bagian Analisis yang Anda tanyakan (Sudah saya lengkapi)
     if st.button("Analisis Saham"):
-        try:
-            # Mengambil data dengan penanganan error yang benar
-            df = yf.download(ticker, period="3mo", progress=False)
-            
-            # Pengecekan data yang AMAN (TIDAK AKAN ERROR AMBIGUOUS)
-            if df is not None and not df.empty and 'Close' in df.columns and len(df) > 14:
-                rsi = calculate_rsi(df)
-                val = rsi.iloc[-1]
+        with st.spinner("Sedang mengambil data dari server..."):
+            try:
+                df = yf.download(ticker, period="3mo", progress=False, threads=True)
                 
-                # Cek apakah nilai valid (bukan NaN)
-                if pd.notnull(val):
-                    st.line_chart(rsi)
-                    st.metric("RSI Saat Ini", f"{float(val):.2f}")
-                    
-                    if val < 30: st.success("Status: Oversold (Potensi Beli)")
-                    elif val > 70: st.warning("Status: Overbought (Potensi Jual)")
-                    else: st.info("Status: Netral")
+                # Cek jika data kosong
+                if df.empty:
+                    st.error("Data tidak ditemukan. Pastikan ticker benar (contoh: BBCA.JK).")
+                elif 'Close' not in df.columns:
+                    st.error("Format data tidak sesuai.")
                 else:
-                    st.error("Data RSI tidak valid (Saham tidak likuid).")
-            else:
-                st.error("Data tidak ditemukan. Pastikan ticker benar (Gunakan .JK untuk saham Indonesia).")
-        except Exception:
-            st.error("Gagal mengambil data, silakan coba lagi nanti.")
+                    rsi = calculate_rsi(df)
+                    val = rsi.iloc[-1]
+                    
+                    if pd.isna(val):
+                        st.error("Data tidak mencukupi untuk menghitung RSI.")
+                    else:
+                        st.line_chart(rsi)
+                        st.metric("RSI Saat Ini", f"{float(val):.2f}")
+                        if val < 30: st.success("Status: Oversold (Potensi Beli)")
+                        elif val > 70: st.warning("Status: Overbought (Potensi Jual)")
+                        else: st.info("Status: Netral")
+            
+            except Exception as e:
+                st.error(f"Gagal memuat data. Server mungkin sibuk. (Detail: {e})")
             
     if st.button("Logout"):
         st.session_state.authenticated = False
