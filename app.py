@@ -11,6 +11,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# Fungsi RSI yang stabil
 def calculate_rsi(data, window=14):
     delta = data['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
@@ -19,7 +20,9 @@ def calculate_rsi(data, window=14):
     return 100 - (100 / (1 + rs))
 
 st.title("📈 TradeWise Perfect")
-if "authenticated" not in st.session_state: st.session_state.authenticated = False
+
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
     pwd = st.text_input("Masukkan Password:", type="password")
@@ -31,39 +34,25 @@ else:
     ticker = st.text_input("Masukkan Kode Saham (Contoh: BBCA.JK)", "BBCA.JK")
     
     if st.button("Analisis Saham"):
-        with st.spinner("Menghubungkan ke server data..."):
-            try:
-                # TEKNIK ANTI-BLOKIR: Menggunakan user-agent
-                df = yf.download(
-                    ticker, 
-                    period="3mo", 
-                    progress=False, 
-                    threads=True,
-                    timeout=10,
-                    proxy=None
-                )
+        try:
+            # Menggunakan sintaks yfinance paling dasar agar kompatibel dengan versi apapun
+            df = yf.download(ticker, period="3mo", progress=False)
+            
+            # Pengecekan data yang aman
+            if isinstance(df, pd.DataFrame) and not df.empty and 'Close' in df.columns:
+                rsi = calculate_rsi(df)
+                val = rsi.iloc[-1]
                 
-                # Pengecekan data yang sangat ketat
-                if df is None or df.empty:
-                    st.error("Data tidak ditemukan atau akses diblokir. Coba lagi nanti.")
-                elif len(df) < 15:
-                    st.error("Data terlalu sedikit untuk analisis.")
-                else:
-                    # Pastikan 'Close' ada
-                    if 'Close' in df.columns:
-                        rsi = calculate_rsi(df)
-                        val = rsi.iloc[-1]
-                        
-                        st.line_chart(rsi)
-                        st.metric("RSI Saat Ini", f"{float(val):.2f}")
-                        
-                        if val < 30: st.success("Status: Oversold (Potensi Beli)")
-                        elif val > 70: st.warning("Status: Overbought (Potensi Jual)")
-                        else: st.info("Status: Netral")
-                    else:
-                        st.error("Format data dari Yahoo tidak valid.")
-            except Exception as e:
-                st.error(f"Gagal mengambil data. Yahoo memblokir request. Error: {e}")
+                st.line_chart(rsi)
+                st.metric("RSI Saat Ini", f"{float(val):.2f}")
+                
+                if val < 30: st.success("Status: Oversold (Potensi Beli)")
+                elif val > 70: st.warning("Status: Overbought (Potensi Jual)")
+                else: st.info("Status: Netral")
+            else:
+                st.error("Data tidak ditemukan atau akses Yahoo dibatasi. Coba lagi nanti.")
+        except Exception as e:
+            st.error(f"Error teknis: {e}")
 
     if st.button("Logout"):
         st.session_state.authenticated = False
