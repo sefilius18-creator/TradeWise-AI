@@ -3,7 +3,7 @@ import yfinance as yf
 import pandas as pd
 
 # Konfigurasi Halaman & CSS untuk Kontras
-st.set_page_config(page_title="TradeWise Secure", layout="wide")
+st.set_page_config(page_title="TradeWise Lite", layout="wide")
 st.markdown("""
     <style>
     .stApp { background: url('https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=2070'); background-size: cover; }
@@ -22,7 +22,7 @@ def calculate_rsi(data, window=14):
     return 100 - (100 / (1 + rs))
 
 # --- SISTEM LOGIN ---
-st.title("📈 TradeWise Secure")
+st.title("📈 TradeWise Lite")
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
@@ -35,21 +35,18 @@ if not st.session_state.authenticated:
         else:
             st.error("Password Salah!")
 else:
-    # --- APLIKASI UTAMA ---
+    # --- APLIKASI UTAMA (Tanpa AI) ---
     ticker = st.text_input("Masukkan Kode Saham (Contoh: BBCA.JK)", "BBCA.JK")
     
     if st.button("Analisis Saham"):
         try:
-            # Unduh data secara aman
             df = yf.download(ticker, period="3mo", progress=False)
             
-            # PERBAIKAN: Gunakan .empty untuk pengecekan data yang benar
-            # Ini akan menghilangkan error "Series is ambiguous"
+            # Pengecekan data yang aman
             if df is not None and not df.empty and 'Close' in df.columns and len(df) > 14:
                 rsi = calculate_rsi(df)
                 val = rsi.iloc[-1]
                 
-                # Pastikan nilai adalah angka (bukan NaN)
                 if pd.notnull(val):
                     st.line_chart(rsi)
                     st.metric("RSI Saat Ini", f"{float(val):.2f}")
@@ -57,11 +54,11 @@ else:
                     elif val > 70: st.warning("Status: Overbought (Potensi Jual)")
                     else: st.info("Status: Netral")
                 else:
-                    st.error("Data RSI tidak valid (mungkin saham tidak likuid).")
+                    st.error("Data RSI tidak valid.")
             else:
-                st.error("Data tidak ditemukan atau ticker salah. (Contoh: BBCA.JK)")
+                st.error("Data tidak ditemukan atau ticker salah.")
         except Exception as e:
-            st.error(f"Error sistem: {e}")
+            st.error(f"Error: {e}")
             
     if st.button("Logout"):
         st.session_state.authenticated = False
