@@ -40,15 +40,16 @@ else:
     
     if st.button("Analisis Saham"):
         try:
-            # Unduh data dari Yahoo Finance
+            # Unduh data secara aman
             df = yf.download(ticker, period="3mo", progress=False)
             
-            # PERBAIKAN: Gunakan .empty untuk mengecek apakah data ada atau tidak
+            # PERBAIKAN: Gunakan .empty untuk pengecekan data yang benar
+            # Ini akan menghilangkan error "Series is ambiguous"
             if df is not None and not df.empty and 'Close' in df.columns and len(df) > 14:
                 rsi = calculate_rsi(df)
                 val = rsi.iloc[-1]
                 
-                # Cek apakah nilai valid (bukan NaN)
+                # Pastikan nilai adalah angka (bukan NaN)
                 if pd.notnull(val):
                     st.line_chart(rsi)
                     st.metric("RSI Saat Ini", f"{float(val):.2f}")
@@ -58,7 +59,7 @@ else:
                 else:
                     st.error("Data RSI tidak valid (mungkin saham tidak likuid).")
             else:
-                st.error("Data tidak ditemukan. Pastikan ticker benar (contoh: BBCA.JK).")
+                st.error("Data tidak ditemukan atau ticker salah. (Contoh: BBCA.JK)")
         except Exception as e:
             st.error(f"Error sistem: {e}")
             
