@@ -1,8 +1,8 @@
 import streamlit as st
 import yfinance as yf
-import pandas as pd
+import requests
 
-# Konfigurasi Halaman Profesional
+# Konfigurasi Halaman (Layout Profesional)
 st.set_page_config(page_title="TradeWise AI Pro", layout="wide")
 
 # CSS untuk estetika bersih
@@ -11,75 +11,95 @@ st.markdown("""
     .stApp { background-color: #ffffff; }
     h1, h2, h3 { color: #1e1e1e !important; }
     .stMetric { background-color: #f8f9fa; padding: 20px; border-radius: 10px; border: 1px solid #e9ecef; }
-    .suggestion-box { padding: 15px; border-radius: 10px; margin-bottom: 20px; font-weight: bold; }
     </style>
 """, unsafe_allow_html=True)
 
-# Fungsi RSI dengan penanganan error
-def get_rsi_analysis(ticker):
-    df = yf.download(ticker, period="3mo", progress=False)
-    if df.empty or 'Close' not in df.columns: return None, None
-    delta = df['Close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
-    rsi = 100 - (100 / (1 + (gain / loss)))
-    return rsi, rsi.iloc[-1].item()
+# Inisialisasi Session State Login
+if "auth" not in st.session_state:
+    st.session_state.auth = False
 
 # Sistem Login
-if "auth" not in st.session_state: st.session_state.auth = False
-
 if not st.session_state.auth:
-    st.title("🔐 TradeWise AI Login")
-    pwd = st.text_input("Password:", type="password")
+    st.title("🔐 Login TradeWise AI")
+    pwd = st.text_input("Masukkan Password:", type="password")
     if st.button("Login"):
-        if pwd == "Sefilius18": st.session_state.auth = True; st.rerun()
+        if pwd == "Sefilius18":
+            st.session_state.auth = True
+            st.rerun()
+        else:
+            st.error("Password Salah!")
 else:
+    # NAVIGASI GARIS 3 (Sidebar)
     with st.sidebar:
         st.header("☰ Menu Utama")
         page = st.radio("Navigasi:", ["Dashboard Analisis", "Tutorial RSI", "Fundamental & Berita"])
-        if st.button("Logout"): st.session_state.auth = False; st.rerun()
+        st.markdown("---")
+        if st.button("Logout"):
+            st.session_state.auth = False
+            st.rerun()
 
-    # --- DASHBOARD ANALISIS ---
+    # --- HALAMAN DASHBOARD ANALISIS ---
     if page == "Dashboard Analisis":
         st.title("📈 Dashboard Analisis")
-        ticker = st.text_input("Masukkan Kode Saham (Contoh: BBCA.JK)", "AAPL")
+        ticker = st.text_input("Masukkan Kode Saham (Contoh: BBCA.JK atau AAPL)", "AAPL")
         
-        if st.button("Jalankan Analisis"):
-            with st.spinner("Menganalisis..."):
-                rsi_series, val = get_rsi_analysis(ticker)
-                if rsi_series is not None:
-                    st.line_chart(rsi_series)
-                    st.metric("Skor RSI", f"{val:.2f}")
-                    
-                    # Logika detail RSI
-                    st.subheader("🤖 Analisis AI")
-                    if val < 30:
-                        st.success("STATUS: OVERSOLD (Jenuh Jual). Harga dianggap murah, potensi pembalikan arah ke atas (Buy Zone).")
-                    elif val > 70:
-                        st.error("STATUS: OVERBOUGHT (Jenuh Beli). Harga dianggap terlalu mahal, waspada potensi koreksi/penurunan (Sell Zone).")
-                    elif 50 < val <= 70:
-                        st.warning("STATUS: BULLISH. Tren sedang menguat, namun belum jenuh beli. Pertahankan posisi.")
-                    elif 30 <= val <= 50:
-                        st.info("STATUS: BEARISH. Tren sedang melemah, namun belum jenuh jual. Tunggu konfirmasi.")
-                    else:
-                        st.write("Status Netral.")
-                else: st.error("Data tidak ditemukan.")
+        if st.button("Dapatkan Rekomendasi"):
+            with st.spinner("TradeWise AI sedang memproses..."):
+                try:
+                    df = yf.download(ticker, period="3mo", progress=False)
+                    if not df.empty:
+                        delta = df['Close'].diff()
+                        gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+                        loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+                        rsi = 100 - (100 / (1 + (gain / loss)))
+                        
+                        st.line_chart(rsi)
+                        val = float(rsi.iloc[-1])
+                        st.metric("Skor RSI", f"{val:.2f}")
+                        
+                        if val < 30: st.success("🤖 AI Suggestion: OVERSOLD (Potensi BELI)")
+                        elif val > 70: st.warning("🤖 AI Suggestion: OVERBOUGHT (Potensi JUAL)")
+                        else: st.info("🤖 AI Suggestion: NETRAL")
+                    else: st.error("Data tidak ditemukan.")
+                except Exception as e: st.error(f"Error: {e}")
 
-    # --- TUTORIAL RSI ---
+    # --- HALAMAN TUTORIAL ---
     elif page == "Tutorial RSI":
-        st.title("🎓 Memahami RSI")
-        st.write("""
-        Relative Strength Index (RSI) adalah indikator momentum yang mengukur kecepatan dan perubahan pergerakan harga.
-        * **Skor 0-30**: Menandakan aset *Oversold*. Sering dianggap sebagai sinyal beli karena harga sudah terlalu rendah.
-        * **Skor 70-100**: Menandakan aset *Overbought*. Sering dianggap sebagai sinyal jual karena harga sudah terlalu tinggi.
-        * **Skor 50**: Batas tengah yang menentukan dominasi pembeli atau penjual.
-        """)
+        st.title("🎓 Tutorial RSI")
+        st.write("Relative Strength Index (RSI) adalah indikator momentum.")
+        # Gambar ilustrasi tutorial
+        st.image("https://www.investopedia.com/thmb/hN83t2yNn51P2S5FhN_67S6hS8s=/1500x0/filters:no_upsert():max_bytes:150000:strip_icc()/RSI_Indicator_Example-5c0b896446e0fb000109a066.jpg")
+        st.write("1. **Oversold (<30)**: Saham cenderung murah.")
+        st.write("2. **Overbought (>70)**: Saham cenderung mahal.")
 
-    # --- FUNDAMENTAL & BERITA ---
+    # --- HALAMAN FUNDAMENTAL & BERITA ---
     elif page == "Fundamental & Berita":
-        st.title("📰 Data & Fundamental")
-        st.info("Catatan: Data fundamental real-time memerlukan API berbayar. Saat ini, kami menyediakan ringkasan teknikal.")
-        st.write("Untuk fundamental, selalu cek: **PER (Price to Earnings Ratio)**, **PBV (Price to Book Value)**, dan **Dividen Yield** melalui laporan keuangan perusahaan.")
-        st.write("---")
-        st.subheader("Berita Saham")
-        st.write("Gunakan fitur ini untuk memantau sentimen pasar. Fokus pada berita mengenai laba kuartalan dan kebijakan suku bunga.")
+        st.title("📰 Data Fundamental & Berita")
+        ticker = st.text_input("Cek Fundamental & Berita Saham:", "AAPL")
+        
+        if st.button("Tampilkan Data"):
+            with st.spinner("Mengambil data..."):
+                # 1. Fundamental
+                stock = yf.Ticker(ticker)
+                info = stock.info
+                col1, col2 = st.columns(2)
+                col1.metric("P/E Ratio", info.get('trailingPE', 'N/A'))
+                col2.metric("Market Cap", f"{info.get('marketCap', 0):,}")
+                
+                # 2. Berita Otomatis
+                API_KEY = "a8f7e0c949134eea9863c652f02f8175"
+                url = f"https://newsapi.org/v2/everything?q={ticker}&apiKey={API_KEY}&language=en&pageSize=3"
+                
+                try:
+                    response = requests.get(url).json()
+                    st.subheader(f"Berita Terbaru: {ticker}")
+                    if response.get('articles'):
+                        for article in response['articles']:
+                            st.write(f"**{article['title']}**")
+                            st.write(f"{article['description']}")
+                            st.markdown(f"[Baca selengkapnya]({article['url']})")
+                            st.divider()
+                    else:
+                        st.warning("Tidak ada berita ditemukan.")
+                except Exception as e:
+                    st.error(f"Gagal memuat berita: {e}")
