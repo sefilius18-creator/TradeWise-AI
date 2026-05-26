@@ -1,3 +1,4 @@
-streamlit
-yfinance
-pandas
+import streamlit as st
+import yfinance as yf
+import requests
+import pandas as pd
