@@ -5,17 +5,18 @@ import pandas as pd
 
 st.set_page_config(page_title="TradeWise AI Pro", layout="wide")
 
-# FUNGSI CACHE (Durasinya diperpanjang untuk mencegah pemblokiran oleh Yahoo)
-@st.cache_data(ttl=3600)
-def fetch_stock_data(ticker):
+# 1. CACHE DATA AGAR TIDAK DIBLOKIR YAHOO FINANCE
+# ttl=86400 (cache disimpan selama 24 jam)
+@st.cache_data(ttl=86400)
+def get_safe_data(ticker):
     try:
-        # Menggunakan yf.download lebih stabil dibanding Ticker().info
+        # Menggunakan yf.download lebih stabil & ringan
         df = yf.download(ticker, period="3mo", progress=False)
         return df
     except Exception:
         return pd.DataFrame()
 
-# SISTEM LOGIN
+# 2. SISTEM LOGIN
 if "auth" not in st.session_state: st.session_state.auth = False
 
 if not st.session_state.auth:
@@ -25,22 +26,22 @@ if not st.session_state.auth:
         if pwd == "Sefilius18": st.session_state.auth = True; st.rerun()
         else: st.error("Password Salah!")
 else:
-    # SIDEBAR
+    # 3. SIDEBAR NAVIGASI
     with st.sidebar:
         st.header("☰ Menu Utama")
         page = st.radio("Navigasi:", ["Dashboard Analisis", "Berita Saham"])
         if st.button("Logout"): st.session_state.auth = False; st.rerun()
 
-    # DASHBOARD ANALISIS
+    # 4. DASHBOARD ANALISIS (RSI)
     if page == "Dashboard Analisis":
-        st.title("📈 Dashboard Analisis")
+        st.title("📈 Analisis RSI")
         ticker = st.text_input("Kode Saham (Contoh: AAPL atau BBCA.JK):", "AAPL")
         
         if st.button("Analisis"):
-            with st.spinner("Mengolah data..."):
-                df = fetch_stock_data(ticker)
+            with st.spinner("Memproses data..."):
+                df = get_safe_data(ticker)
                 if not df.empty and 'Close' in df.columns:
-                    # Perhitungan RSI yang aman dari error Series
+                    # Perhitungan RSI
                     close = df['Close']
                     delta = close.diff()
                     gain = (delta.where(delta > 0, 0)).rolling(14).mean()
@@ -49,7 +50,7 @@ else:
                     
                     st.line_chart(rsi)
                     
-                    # Mengambil nilai terakhir dengan aman
+                    # FIX: Ambil nilai terakhir dengan .iloc[-1] agar tidak error Series
                     val = float(rsi.iloc[-1])
                     st.metric("Skor RSI", f"{val:.2f}")
                     
@@ -57,12 +58,12 @@ else:
                     elif val > 70: st.error("STATUS: OVERBOUGHT (Potensi Jual)")
                     else: st.info("STATUS: NETRAL")
                 else:
-                    st.warning("Data tidak tersedia atau server sedang sibuk. Tunggu 1 menit lalu coba lagi.")
+                    st.warning("Data tidak tersedia/server sibuk. Harap tunggu beberapa saat.")
 
-    # BERITA (BAHASA INDONESIA)
+    # 5. BERITA SAHAM
     elif page == "Berita Saham":
         st.title("📰 Berita Saham")
-        ticker = st.text_input("Saham:", "AAPL")
+        ticker = st.text_input("Cari berita:", "AAPL")
         if st.button("Tampilkan Berita"):
             API_KEY = "a8f7e0c949134eea9863c652f02f8175"
             url = f"https://newsapi.org/v2/everything?q={ticker}&apiKey={API_KEY}&language=id&pageSize=3"
@@ -77,4 +78,4 @@ else:
                 else:
                     st.warning("Tidak ada berita Bahasa Indonesia ditemukan.")
             except:
-                st.error("Gagal memuat berita. Periksa koneksi atau coba saham lain.")
+                st.error("Gagal memuat berita. Periksa koneksi.")
