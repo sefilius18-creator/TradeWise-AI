@@ -16,7 +16,7 @@ st.set_page_config(
 # LOGIN
 # ====================================
 
-PASSWORD = "123456"
+PASSWORD = "Sefilius18"
 
 if "login" not in st.session_state:
     st.session_state.login = False
@@ -58,6 +58,7 @@ menu = st.sidebar.radio(
 # FUNCTION
 # ====================================
 
+@st.cache_data(ttl=3600)
 @st.cache_data(ttl=3600)
 def get_stock_data(ticker):
 
