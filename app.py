@@ -3,10 +3,10 @@ import yfinance as yf
 import requests
 import pandas as pd
 
-# Konfigurasi Halaman
-st.set_page_config(page_title="TradeWise AI Pro", layout="wide")
+# Konfigurasi
+st.set_page_config(page_title="TradeWise AI", layout="wide")
 
-# Fungsi Data dengan Caching (PENTING untuk mengelakkan Rate Limit)
+# Fungsi Data Aman
 @st.cache_data(ttl=3600)
 def get_data(ticker):
     try:
@@ -20,20 +20,20 @@ if "auth" not in st.session_state: st.session_state.auth = False
 
 if not st.session_state.auth:
     st.title("🔐 TradeWise AI Pro")
-    pwd = st.text_input("Masukkan Password:", type="password")
+    pwd = st.text_input("Password:", type="password")
     if st.button("Login"):
         if pwd == "Sefilius18": st.session_state.auth = True; st.rerun()
         else: st.error("Password Salah!")
 else:
-    # --- SIDEBAR NAVIGASI (Dikekalkan supaya tidak hilang) ---
+    # --- NAVIGASI SIDEBAR (Dibuat permanen agar tidak hilang) ---
     st.sidebar.title("☰ Menu Utama")
     menu = st.sidebar.radio("Navigasi:", ["Dashboard Analisis", "Fundamental", "Berita Saham"])
     if st.sidebar.button("Logout"): st.session_state.auth = False; st.rerun()
 
-    # --- 1. DASHBOARD ANALISIS RSI ---
+    # --- 1. DASHBOARD ANALISIS ---
     if menu == "Dashboard Analisis":
         st.title("📈 Analisis Teknikal RSI")
-        ticker = st.text_input("Kode Saham (Contoh: AAPL):", "AAPL")
+        ticker = st.text_input("Kode Saham:", "AAPL")
         if st.button("Analisis RSI"):
             df, _ = get_data(ticker)
             if not df.empty and 'Close' in df.columns:
@@ -41,15 +41,17 @@ else:
                 gain = (delta.where(delta > 0, 0)).rolling(14).mean()
                 loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
                 rsi = 100 - (100 / (1 + (gain / loss)))
+                
+                # Konversi ke angka tunggal untuk menghindari TypeError
                 val = float(rsi.iloc[-1].item() if hasattr(rsi.iloc[-1], 'item') else rsi.iloc[-1])
                 
                 st.line_chart(rsi)
                 st.metric("Skor RSI", f"{val:.2f}")
                 
-                if val < 30: st.success("STATUS: OVERSOLD (Jenuh Jual). Rekomendasi: **PELUANG BELI**")
-                elif val > 70: st.error("STATUS: OVERBOUGHT (Jenuh Beli). Rekomendasi: **PELUANG JUAL/KOREKSI**")
+                if val < 30: st.success("STATUS: OVERSOLD. Rekomendasi: **PELUANG BELI**")
+                elif val > 70: st.error("STATUS: OVERBOUGHT. Rekomendasi: **PELUANG JUAL / KOREKSI**")
                 else: st.info("STATUS: NETRAL. Rekomendasi: **WAIT AND SEE**")
-            else: st.warning("Data tidak tersedia.")
+            else: st.warning("Data belum tersedia. Tunggu 1 jam.")
 
     # --- 2. FUNDAMENTAL ---
     elif menu == "Fundamental":
@@ -60,7 +62,7 @@ else:
             if info:
                 st.metric("P/E Ratio", info.get('trailingPE', 'N/A'))
                 st.metric("Market Cap", f"{info.get('marketCap', 0)/1e9:.2f} B")
-            else: st.error("Data tidak ditemui.")
+            else: st.error("Data Fundamental tidak ditemukan.")
 
     # --- 3. BERITA SAHAM ---
     elif menu == "Berita Saham":
