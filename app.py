@@ -58,36 +58,53 @@ menu = st.sidebar.radio(
 # FUNCTION
 # ====================================
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=300)
 def get_stock_data(ticker):
 
     try:
 
-        if ".JK" not in ticker and len(ticker) == 4:
+        ticker = ticker.upper().strip()
+
+        # Tambahkan .JK hanya saham Indonesia
+        if len(ticker) == 4 and "." not in ticker:
             ticker += ".JK"
 
-        stock = yf.Ticker(ticker)
-
+        # Download data
         df = yf.download(
-            ticker,
-            period="6mo",
-            progress=False,
+            tickers=ticker,
+            period="3mo",
+            interval="1d",
             auto_adjust=True,
+            progress=False,
             threads=False
         )
 
+        # Pastikan dataframe valid
+        if df is None or df.empty:
+            return pd.DataFrame(), {}
+
+        # Ambil fundamental ringan
         try:
-            info = dict(stock.fast_info)
+
+            stock = yf.Ticker(ticker)
+
+            fast = stock.fast_info
+
+            info = {
+                "lastPrice": fast.get("lastPrice"),
+                "dayHigh": fast.get("dayHigh"),
+                "dayLow": fast.get("dayLow")
+            }
+
         except:
+
             info = {}
 
         return df, info
 
-    except Exception:
+    except Exception as e:
 
-        st.error(
-            "Yahoo Finance sedang limit request."
-        )
+        st.error(f"Error: {e}")
 
         return pd.DataFrame(), {}
 
