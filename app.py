@@ -1,70 +1,205 @@
 import streamlit as st
 import yfinance as yf
-import requests
 import pandas as pd
+import feedparser
 
-# Konfigurasi Halaman
-st.set_page_config(page_title="TradeWise AI", layout="wide")
+# ====================================
+# CONFIG
+# ====================================
+
+st.set_page_config(
+    page_title="TradeWise AI",
+    layout="wide"
+)
+
+# ====================================
+# LOGIN
+# ====================================
+
+PASSWORD = "123456"
+
+if "login" not in st.session_state:
+    st.session_state.login = False
+
+if not st.session_state.login:
+
+    st.title("🔐 TradeWise AI")
+
+    pwd = st.text_input(
+        "Masukkan Password",
+        type="password"
+    )
+
+    if st.button("Login"):
+
+        if pwd == PASSWORD:
+            st.session_state.login = True
+            st.rerun()
+
+        else:
+            st.error("Password Salah")
+
+    st.stop()
+
+# ====================================
+# SIDEBAR
+# ====================================
+
+menu = st.sidebar.radio(
+    "Menu",
+    [
+        "RSI",
+        "Fundamental",
+        "Berita"
+    ]
+)
+
+# ====================================
+# FUNCTION
+# ====================================
 
 @st.cache_data(ttl=3600)
-def get_data(ticker):
-    try:
-        df = yf.download(ticker, period="6mo", progress=False)
-        info = yf.Ticker(ticker).info
-        return df, info
-    except: return pd.DataFrame(), {}
+def get_stock_data(ticker):
 
-# --- SISTEM LOGIN ---
-if "auth" not in st.session_state: st.session_state.auth = False
+    if ".JK" not in ticker and len(ticker) == 4:
+        ticker += ".JK"
 
-if not st.session_state.auth:
-    st.title("🔐 Login")
-    pwd = st.text_input("Password:", type="password")
-    if st.button("Login"):
-        if pwd == "Sefilius18": st.session_state.auth = True; st.rerun()
-        else: st.error("Password Salah!")
-else:
-    # --- NAVIGASI ---
-    st.sidebar.title("Menu Utama")
-    menu = st.sidebar.radio("Pilih Halaman:", ["Dashboard RSI", "Fundamental & Berita"])
-    if st.sidebar.button("Logout"): st.session_state.auth = False; st.rerun()
+    stock = yf.Ticker(ticker)
 
-    if menu == "Dashboard RSI":
-        st.title("📈 Analisis RSI")
-        ticker = st.text_input("Kode Saham:", "AAPL")
-        if st.button("Analisis"):
-            df, _ = get_data(ticker)
-            if not df.empty and 'Close' in df.columns:
-                delta = df['Close'].diff()
-                gain = (delta.where(delta > 0, 0)).rolling(14).mean()
-                loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
-                rsi = 100 - (100 / (1 + (gain / loss)))
-                
-                # PERBAIKAN: Mengambil nilai scalar dengan aman
-                val = rsi.iloc[-1]
-                if hasattr(val, 'item'): val = val.item()
-                
-                st.line_chart(rsi)
-                st.metric("Skor RSI", f"{float(val):.2f}")
-            else: st.error("Data tidak tersedia.")
+    df = yf.download(
+        ticker,
+        period="6mo",
+        progress=False
+    )
 
-    elif menu == "Fundamental & Berita":
-        st.title("📰 Fundamental & Berita")
-        ticker = st.text_input("Cek Saham:", "AAPL")
-        if st.button("Tampilkan"):
-            _, info = get_data(ticker)
-            st.metric("P/E Ratio", info.get('trailingPE', 'N/A'))
-            
-            # PERBAIKAN BERITA: Cek apakah ada data
-            API_KEY = "a8f7e0c949134eea9863c652f02f8175"
-            url = f"https://newsapi.org/v2/everything?q={ticker}&apiKey={API_KEY}&language=id&pageSize=3"
-            try:
-                res = requests.get(url, timeout=10).json()
-                articles = res.get('articles', [])
-                if articles:
-                    for art in articles:
-                        st.write(f"### {art['title']}")
-                        st.markdown(f"[Baca Sumber]({art['url']})")
-                else:
-                    st.info("Berita tidak ditemukan untuk kode ini.")
-            except: st.error("Gagal memuat berita dari API.")
+    info = stock.info
+
+    return df, info
+
+# ====================================
+# RSI
+# ====================================
+
+if menu == "RSI":
+
+    st.title("📈 Analisis RSI")
+
+    ticker = st.text_input(
+        "Masukkan Saham",
+        "AAPL"
+    )
+
+    if st.button("Analisis"):
+
+        df, info = get_stock_data(ticker)
+
+        if not df.empty:
+
+            close = df["Close"]
+
+            delta = close.diff()
+
+            gain = delta.clip(lower=0)
+
+            loss = -delta.clip(upper=0)
+
+            avg_gain = gain.rolling(14).mean()
+
+            avg_loss = loss.rolling(14).mean()
+
+            rs = avg_gain / avg_loss
+
+            rsi = 100 - (100 / (1 + rs))
+
+            value = round(float(rsi.iloc[-1]), 2)
+
+            st.metric("RSI", value)
+
+            st.line_chart(rsi)
+
+            if value < 30:
+                st.success("OVERSOLD → BUY")
+
+            elif value > 70:
+                st.error("OVERBOUGHT → SELL")
+
+            else:
+                st.info("NETRAL")
+
+# ====================================
+# FUNDAMENTAL
+# ====================================
+
+elif menu == "Fundamental":
+
+    st.title("📊 Fundamental")
+
+    ticker = st.text_input(
+        "Masukkan Saham",
+        "AAPL"
+    )
+
+    if st.button("Tampilkan Fundamental"):
+
+        df, info = get_stock_data(ticker)
+
+        st.metric(
+            "Market Cap",
+            info.get("marketCap", "N/A")
+        )
+
+        st.metric(
+            "P/E Ratio",
+            info.get("trailingPE", "N/A")
+        )
+
+        st.metric(
+            "Current Price",
+            info.get("currentPrice", "N/A")
+        )
+
+        st.write(
+            "### Nama Perusahaan"
+        )
+
+        st.write(
+            info.get("longName", "N/A")
+        )
+
+# ====================================
+# BERITA
+# ====================================
+
+elif menu == "Berita":
+
+    st.title("📰 Berita Saham")
+
+    ticker = st.text_input(
+        "Masukkan Saham",
+        "AAPL"
+    )
+
+    if st.button("Ambil Berita"):
+
+        url = (
+            f"https://news.google.com/rss/search?"
+            f"q={ticker}+stock&hl=id&gl=ID&ceid=ID:id"
+        )
+
+        feed = feedparser.parse(url)
+
+        if not feed.entries:
+
+            st.warning("Berita tidak ditemukan")
+
+        else:
+
+            for news in feed.entries[:5]:
+
+                st.subheader(news.title)
+
+                st.markdown(
+                    f"[Baca Berita]({news.link})"
+                )
+
+                st.divider()
