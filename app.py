@@ -117,27 +117,29 @@ if menu == "RSI":
     st.title("📈 Analisis RSI")
 
     market = st.selectbox(
-    "Pilih Market",
-    ["US", "Indonesia"]
-)
+        "Pilih Market",
+        ["US", "Indonesia"]
+    )
 
-ticker = st.text_input(
-    "Masukkan Saham",
-    "AAPL"
-)
+    ticker = st.text_input(
+        "Masukkan Saham",
+        "AAPL"
+    )
 
     if st.button("Analisis"):
 
         with st.spinner("Mengambil data saham..."):
 
+            # Format ticker
             if market == "Indonesia":
-    ticker_final = ticker.upper() + ".JK"
-else:
-    ticker_final = ticker.upper()
+                ticker_final = ticker.upper() + ".JK"
+            else:
+                ticker_final = ticker.upper()
 
-df, info = get_stock_data(ticker_final)
+            # Ambil data
+            df, info = get_stock_data(ticker_final)
 
-        # DEBUG
+        st.write("Ticker:", ticker_final)
         st.write("Jumlah Data:", len(df))
 
         if df.empty:
@@ -150,7 +152,6 @@ df, info = get_stock_data(ticker_final)
 
                 close = df["Close"]
 
-                # Ubah ke Series
                 if isinstance(close, pd.DataFrame):
                     close = close.iloc[:, 0]
 
@@ -214,19 +215,24 @@ elif menu == "Fundamental":
 
     st.title("📊 Fundamental")
 
+    market = st.selectbox(
+        "Pilih Market Fundamental",
+        ["US", "Indonesia"]
+    )
+
     ticker = st.text_input(
         "Masukkan Saham",
-        "BBCA.JK"
+        "AAPL"
     )
 
     if st.button("Tampilkan Fundamental"):
 
         if market == "Indonesia":
-    ticker_final = ticker.upper() + ".JK"
-else:
-    ticker_final = ticker.upper()
+            ticker_final = ticker.upper() + ".JK"
+        else:
+            ticker_final = ticker.upper()
 
-df, info = get_stock_data(ticker_final)
+        df, info = get_stock_data(ticker_final)
 
         if not info:
 
