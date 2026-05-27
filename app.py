@@ -116,16 +116,26 @@ if menu == "RSI":
 
     st.title("📈 Analisis RSI")
 
-    ticker = st.text_input(
-        "Masukkan Saham",
-        "AAPL"
-    )
+    market = st.selectbox(
+    "Pilih Market",
+    ["US", "Indonesia"]
+)
+
+ticker = st.text_input(
+    "Masukkan Saham",
+    "AAPL"
+)
 
     if st.button("Analisis"):
 
         with st.spinner("Mengambil data saham..."):
 
-            df, info = get_stock_data(ticker)
+            if market == "Indonesia":
+    ticker_final = ticker.upper() + ".JK"
+else:
+    ticker_final = ticker.upper()
+
+df, info = get_stock_data(ticker_final)
 
         # DEBUG
         st.write("Jumlah Data:", len(df))
@@ -211,7 +221,12 @@ elif menu == "Fundamental":
 
     if st.button("Tampilkan Fundamental"):
 
-        df, info = get_stock_data(ticker)
+        if market == "Indonesia":
+    ticker_final = ticker.upper() + ".JK"
+else:
+    ticker_final = ticker.upper()
+
+df, info = get_stock_data(ticker_final)
 
         if not info:
 
