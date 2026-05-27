@@ -106,40 +106,78 @@ if menu == "RSI":
 
     if st.button("Analisis"):
 
-        df, info = get_stock_data(ticker)
+        with st.spinner("Mengambil data saham..."):
 
-        if not df.empty:
+            df, info = get_stock_data(ticker)
 
-            close = df["Close"].squeeze()
+        # DEBUG
+        st.write("Jumlah Data:", len(df))
 
-            delta = close.diff()
+        if df.empty:
 
-            gain = delta.clip(lower=0)
+            st.error("Data saham tidak ditemukan")
 
-            loss = -delta.clip(upper=0)
+        else:
 
-            avg_gain = gain.rolling(14).mean()
+            try:
 
-            avg_loss = loss.rolling(14).mean()
+                close = df["Close"]
 
-            rs = avg_gain / avg_loss
+                # Ubah ke Series
+                if isinstance(close, pd.DataFrame):
+                    close = close.iloc[:, 0]
 
-            rsi = 100 - (100 / (1 + rs))
+                delta = close.diff()
 
-            value = round(float(rsi.iloc[-1]), 2)
+                gain = delta.clip(lower=0)
 
-            st.metric("RSI", value)
+                loss = -delta.clip(upper=0)
 
-            st.line_chart(rsi)
+                avg_gain = gain.rolling(14).mean()
 
-            if value < 30:
-                st.success("OVERSOLD → BUY")
+                avg_loss = loss.rolling(14).mean()
 
-            elif value > 70:
-                st.error("OVERBOUGHT → SELL")
+                rs = avg_gain / avg_loss
 
-            else:
-                st.info("NETRAL")
+                rsi = 100 - (100 / (1 + rs))
+
+                latest_rsi = float(rsi.iloc[-1])
+
+                latest_price = float(close.iloc[-1])
+
+                st.metric(
+                    "Harga Saat Ini",
+                    round(latest_price, 2)
+                )
+
+                st.metric(
+                    "RSI",
+                    round(latest_rsi, 2)
+                )
+
+                st.line_chart(rsi)
+
+                if latest_rsi < 30:
+
+                    st.success(
+                        "OVERSOLD → Potensi BUY"
+                    )
+
+                elif latest_rsi > 70:
+
+                    st.error(
+                        "OVERBOUGHT → Potensi SELL"
+                    )
+
+                else:
+
+                    st.info(
+                        "NETRAL → WAIT & SEE"
+                    )
+
+            except Exception as e:
+
+                st.error(f"Error RSI: {e}")
 
 # ====================================
 # FUNDAMENTAL
