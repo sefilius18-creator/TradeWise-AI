@@ -152,35 +152,35 @@ elif menu == "Fundamental":
 
     ticker = st.text_input(
         "Masukkan Saham",
-        "AAPL"
+        "BBCA.JK"
     )
 
     if st.button("Tampilkan Fundamental"):
 
         df, info = get_stock_data(ticker)
 
-        st.metric(
-    "Last Price",
-    info.get("lastPrice", "N/A")
-)
+        if not info:
 
-st.metric(
-    "Day High",
-    info.get("dayHigh", "N/A")
-)
+            st.error("Data fundamental gagal dimuat")
 
-st.metric(
-    "Day Low",
-    info.get("dayLow", "N/A")
-)
+        else:
 
-        st.write(
-            "### Nama Perusahaan"
-        )
+            st.metric(
+                "Last Price",
+                info.get("lastPrice", "N/A")
+            )
 
-        st.write(
-            info.get("longName", "N/A")
-        )
+            st.metric(
+                "Day High",
+                info.get("dayHigh", "N/A")
+            )
+
+            st.metric(
+                "Day Low",
+                info.get("dayLow", "N/A")
+            )
+
+            st.success("Fundamental berhasil dimuat")
 
 # ====================================
 # BERITA
