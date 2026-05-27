@@ -3,10 +3,9 @@ import yfinance as yf
 import requests
 import pandas as pd
 
-# Konfigurasi
+# Konfigurasi Halaman
 st.set_page_config(page_title="TradeWise AI", layout="wide")
 
-# Fungsi Data Aman
 @st.cache_data(ttl=3600)
 def get_data(ticker):
     try:
@@ -19,22 +18,21 @@ def get_data(ticker):
 if "auth" not in st.session_state: st.session_state.auth = False
 
 if not st.session_state.auth:
-    st.title("🔐 TradeWise AI Pro")
+    st.title("🔐 Login")
     pwd = st.text_input("Password:", type="password")
     if st.button("Login"):
         if pwd == "Sefilius18": st.session_state.auth = True; st.rerun()
         else: st.error("Password Salah!")
 else:
-    # --- NAVIGASI SIDEBAR (Dibuat permanen agar tidak hilang) ---
-    st.sidebar.title("☰ Menu Utama")
-    menu = st.sidebar.radio("Navigasi:", ["Dashboard Analisis", "Fundamental", "Berita Saham"])
+    # --- NAVIGASI ---
+    st.sidebar.title("Menu Utama")
+    menu = st.sidebar.radio("Pilih Halaman:", ["Dashboard RSI", "Fundamental & Berita"])
     if st.sidebar.button("Logout"): st.session_state.auth = False; st.rerun()
 
-    # --- 1. DASHBOARD ANALISIS ---
-    if menu == "Dashboard Analisis":
-        st.title("📈 Analisis Teknikal RSI")
+    if menu == "Dashboard RSI":
+        st.title("📈 Analisis RSI")
         ticker = st.text_input("Kode Saham:", "AAPL")
-        if st.button("Analisis RSI"):
+        if st.button("Analisis"):
             df, _ = get_data(ticker)
             if not df.empty and 'Close' in df.columns:
                 delta = df['Close'].diff()
@@ -42,40 +40,31 @@ else:
                 loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
                 rsi = 100 - (100 / (1 + (gain / loss)))
                 
-                # Konversi ke angka tunggal untuk menghindari TypeError
-                val = float(rsi.iloc[-1].item() if hasattr(rsi.iloc[-1], 'item') else rsi.iloc[-1])
+                # PERBAIKAN: Mengambil nilai scalar dengan aman
+                val = rsi.iloc[-1]
+                if hasattr(val, 'item'): val = val.item()
                 
                 st.line_chart(rsi)
-                st.metric("Skor RSI", f"{val:.2f}")
-                
-                if val < 30: st.success("STATUS: OVERSOLD. Rekomendasi: **PELUANG BELI**")
-                elif val > 70: st.error("STATUS: OVERBOUGHT. Rekomendasi: **PELUANG JUAL / KOREKSI**")
-                else: st.info("STATUS: NETRAL. Rekomendasi: **WAIT AND SEE**")
-            else: st.warning("Data belum tersedia. Tunggu 1 jam.")
+                st.metric("Skor RSI", f"{float(val):.2f}")
+            else: st.error("Data tidak tersedia.")
 
-    # --- 2. FUNDAMENTAL ---
-    elif menu == "Fundamental":
-        st.title("📊 Data Fundamental")
+    elif menu == "Fundamental & Berita":
+        st.title("📰 Fundamental & Berita")
         ticker = st.text_input("Cek Saham:", "AAPL")
-        if st.button("Tampilkan Fundamental"):
+        if st.button("Tampilkan"):
             _, info = get_data(ticker)
-            if info:
-                st.metric("P/E Ratio", info.get('trailingPE', 'N/A'))
-                st.metric("Market Cap", f"{info.get('marketCap', 0)/1e9:.2f} B")
-            else: st.error("Data Fundamental tidak ditemukan.")
-
-    # --- 3. BERITA SAHAM ---
-    elif menu == "Berita Saham":
-        st.title("📰 Berita Terkini")
-        ticker = st.text_input("Cari Berita:", "AAPL")
-        if st.button("Muat Berita"):
+            st.metric("P/E Ratio", info.get('trailingPE', 'N/A'))
+            
+            # PERBAIKAN BERITA: Cek apakah ada data
             API_KEY = "a8f7e0c949134eea9863c652f02f8175"
             url = f"https://newsapi.org/v2/everything?q={ticker}&apiKey={API_KEY}&language=id&pageSize=3"
             try:
                 res = requests.get(url, timeout=10).json()
-                for art in res.get('articles', []):
-                    st.write(f"### {art['title']}")
-                    st.write(art['description'])
-                    st.markdown(f"[Baca Sumber Asli]({art['url']})")
-                    st.divider()
-            except: st.error("Berita gagal dimuat.")
+                articles = res.get('articles', [])
+                if articles:
+                    for art in articles:
+                        st.write(f"### {art['title']}")
+                        st.markdown(f"[Baca Sumber]({art['url']})")
+                else:
+                    st.info("Berita tidak ditemukan untuk kode ini.")
+            except: st.error("Gagal memuat berita dari API.")
