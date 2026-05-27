@@ -61,20 +61,35 @@ menu = st.sidebar.radio(
 @st.cache_data(ttl=3600)
 def get_stock_data(ticker):
 
-    if ".JK" not in ticker and len(ticker) == 4:
-        ticker += ".JK"
+    try:
 
-    stock = yf.Ticker(ticker)
+        if ".JK" not in ticker and len(ticker) == 4:
+            ticker += ".JK"
 
-    df = yf.download(
-        ticker,
-        period="6mo",
-        progress=False
-    )
+        stock = yf.Ticker(ticker)
 
-    info = stock.info
+        # Ambil data harga
+        df = yf.download(
+            ticker,
+            period="6mo",
+            progress=False,
+            auto_adjust=True,
+            threads=False
+        )
 
-    return df, info
+        # Ambil info fundamental
+        try:
+            info = stock.fast_info
+        except:
+            info = {}
+
+        return df, info
+
+    except Exception as e:
+
+        st.error("Yahoo Finance sedang limit request. Coba lagi beberapa saat.")
+
+        return pd.DataFrame(), {}
 
 # ====================================
 # RSI
@@ -95,7 +110,7 @@ if menu == "RSI":
 
         if not df.empty:
 
-            close = df["Close"]
+            close = df["Close"].squeeze()
 
             delta = close.diff()
 
@@ -144,19 +159,19 @@ elif menu == "Fundamental":
         df, info = get_stock_data(ticker)
 
         st.metric(
-            "Market Cap",
-            info.get("marketCap", "N/A")
-        )
+    "Last Price",
+    info.get("lastPrice", "N/A")
+)
 
-        st.metric(
-            "P/E Ratio",
-            info.get("trailingPE", "N/A")
-        )
+st.metric(
+    "Day High",
+    info.get("dayHigh", "N/A")
+)
 
-        st.metric(
-            "Current Price",
-            info.get("currentPrice", "N/A")
-        )
+st.metric(
+    "Day Low",
+    info.get("dayLow", "N/A")
+)
 
         st.write(
             "### Nama Perusahaan"
