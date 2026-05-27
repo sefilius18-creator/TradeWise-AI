@@ -65,25 +65,22 @@ def get_stock_data(ticker):
 
         ticker = ticker.upper().strip()
 
-        # Tambahkan .JK hanya saham Indonesia
-        if len(ticker) == 4 and "." not in ticker:
-            ticker += ".JK"
-
-        # Download data
+        # Download data saham
         df = yf.download(
-            tickers=ticker,
-            period="3mo",
+            ticker,
+            period="6mo",
             interval="1d",
             auto_adjust=True,
-            progress=False,
-            threads=False
+            progress=False
         )
 
-        # Pastikan dataframe valid
-        if df is None or df.empty:
+        # Jika data kosong
+        if df.empty:
             return pd.DataFrame(), {}
 
-        # Ambil fundamental ringan
+        # Fundamental ringan
+        info = {}
+
         try:
 
             stock = yf.Ticker(ticker)
@@ -97,8 +94,7 @@ def get_stock_data(ticker):
             }
 
         except:
-
-            info = {}
+            pass
 
         return df, info
 
