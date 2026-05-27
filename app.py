@@ -59,7 +59,6 @@ menu = st.sidebar.radio(
 # ====================================
 
 @st.cache_data(ttl=3600)
-@st.cache_data(ttl=3600)
 def get_stock_data(ticker):
 
     try:
@@ -69,7 +68,6 @@ def get_stock_data(ticker):
 
         stock = yf.Ticker(ticker)
 
-        # Ambil data harga
         df = yf.download(
             ticker,
             period="6mo",
@@ -78,17 +76,18 @@ def get_stock_data(ticker):
             threads=False
         )
 
-        # Ambil info fundamental
         try:
-            info = stock.fast_info
+            info = dict(stock.fast_info)
         except:
             info = {}
 
         return df, info
 
-    except Exception as e:
+    except Exception:
 
-        st.error("Yahoo Finance sedang limit request. Coba lagi beberapa saat.")
+        st.error(
+            "Yahoo Finance sedang limit request."
+        )
 
         return pd.DataFrame(), {}
 
